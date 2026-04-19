@@ -4,170 +4,135 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Mochi Bot">
-    
-    <title>Mochi AI Robot</title>
-    
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <title>Mochi Robot</title>
     <style>
-        body { 
-            background: black; 
-            margin: 0; 
-            overflow: hidden; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 101vh; /* 1% extra para permitir el auto-scroll */
-            width: 100vw;
-            touch-action: none;
-            font-family: sans-serif;
+        body { background: black; margin: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; width: 100vw; }
+        
+        /* Contenedor de la cara según tu imagen */
+        .face-container { display: flex; align-items: center; gap: 80px; position: relative; }
+        
+        .eye { 
+            width: 110px; height: 160px; background: white; border-radius: 55px; 
+            position: relative; overflow: hidden; transition: all 0.15s ease;
         }
 
-        .face-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 100px;
-            position: relative;
-            transition: transform 0.3s ease;
+        .pupil { 
+            width: 50px; height: 70px; background: #111; border-radius: 50%; 
+            position: absolute; top: 45px; left: 30px; 
         }
 
-        .eye {
-            width: 120px; 
-            height: 170px; 
-            background-color: white; 
-            border-radius: 60px; 
-            position: relative;
-            overflow: hidden;
-            transition: all 0.2s ease-out;
-            box-shadow: 0 0 25px rgba(255,255,255,0.3);
+        /* Boca de la imagen */
+        .mouth {
+            width: 60px; height: 30px; border: 8px solid white; border-top: 0;
+            border-radius: 0 0 40px 40px; position: absolute; bottom: -50px; left: calc(50% - 38px);
         }
 
-        .pupil {
-            width: 55px;
-            height: 75px;
-            background-color: #1a1a1a;
-            border-radius: 50%;
-            position: absolute;
-            top: 45px; left: 32px;
-            transition: transform 0.1s ease-out;
-        }
-
-        /* Estados Visuales */
-        .scared { background-color: #ff4d4d !important; transform: scale(1.2); }
-        .happy { transform: scaleY(0.8) rotate(5deg); background-color: #00FFCC !important; }
-        .blink { height: 10px !important; margin-top: 80px; }
-
-        /* Elementos ocultos */
-        #video { position: absolute; width: 80px; height: 60px; opacity: 0; pointer-events: none; }
-        #canvas { display: none; }
-        #msg { position: absolute; top: 20px; color: white; opacity: 0.4; font-size: 12px; }
+        /* Estados */
+        .blink { height: 10px !important; margin-top: 75px; }
+        .scared { background: #ff3333 !important; transform: scale(1.2); }
+        
+        #video { position: absolute; width: 1px; height: 1px; opacity: 0; }
+        #msg { position: absolute; top: 20px; color: white; font-family: sans-serif; font-size: 14px; text-align: center; width: 100%; }
     </style>
 </head>
-<body onclick="startRobot()">
+<body onclick="activarTodo()">
 
-    <div id="msg">Toca para activar visión y sonido</div>
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas"></canvas>
+    <div id="msg">¡TOCA LA PANTALLA PARA COMENZAR!</div>
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas" style="display:none;"></canvas>
 
-    <div id="face" class="face-container">
-        <div id="eL" class="eye"><div id="pL" class="pupil"></div></div>
-        <div id="eR" class="eye"><div id="pR" class="pupil"></div></div>
+    <div class="face-container">
+        <div id="eL" class="eye"><div class="p" class="pupil"></div></div>
+        <div class="mouth"></div>
+        <div id="eR" class="eye"><div class="p" class="pupil"></div></div>
     </div>
 
-    <audio id="sndHappy" src="https://assets.mixkit.co/active_storage/sfx/2861/2861-preview.mp3"></audio>
+    <audio id="snd" src="https://assets.mixkit.co/active_storage/sfx/2861/2861-preview.mp3"></audio>
 
     <script>
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const eyes = document.querySelectorAll('.eye');
-        const pupils = document.querySelectorAll('.pupil');
-        const sndHappy = document.getElementById('sndHappy');
-        const msg = document.getElementById('msg');
-        
-        let prevFrame = null;
-        let isActive = false;
+        var video = document.getElementById('video');
+        var canvas = document.getElementById('canvas');
+        var ctx = canvas.getContext('2d');
+        var msg = document.getElementById('msg');
+        var eyes = document.querySelectorAll('.eye');
+        var pupils = document.querySelectorAll('.p');
+        var snd = document.getElementById('snd');
+        var prevFrame = null;
+        var inicializado = false;
 
-        // 1. INICIO Y PANTALLA COMPLETA
-        function startRobot() {
-            if(isActive) return;
-            isActive = true;
-            msg.style.display = 'none';
+        function activarTodo() {
+            if (inicializado) return;
+            msg.innerHTML = "Iniciando sensores...";
             
-            // Truco de scroll para ocultar barras
+            // 1. Activar Sonido
+            snd.play();
+            
+            // 2. Activar Cámara
+            var constraints = { video: { facingMode: "user", width: 160, height: 120 } };
+            navigator.mediaDevices.getUserMedia(constraints)
+            .then(function(stream) {
+                video.srcObject = stream;
+                msg.style.display = 'none';
+                inicializado = true;
+                procesarIA();
+            })
+            .catch(function(err) {
+                alert("Error Cámara: " + err);
+                msg.innerHTML = "Error de cámara. Revisa permisos.";
+            });
+
             window.scrollTo(0, 1);
-            
-            // Activar Cámara
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-                .then(stream => {
-                    video.srcObject = stream;
-                    sndHappy.play();
-                    requestAnimationFrame(processAI);
-                })
-                .catch(err => alert("Cámara no disponible"));
         }
 
-        // 2. VISIÓN ARTIFICIAL LITE (Detección de Movimiento)
-        function processAI() {
-            canvas.width = 40;
-            canvas.height = 30;
+        function procesarIA() {
             ctx.drawImage(video, 0, 0, 40, 30);
-            const currentFrame = ctx.getImageData(0, 0, 40, 30).data;
+            var frame = ctx.getImageData(0, 0, 40, 30).data;
 
             if (prevFrame) {
-                let change = 0;
-                for (let i = 0; i < currentFrame.length; i += 4) {
-                    let d = Math.abs(currentFrame[i] - prevFrame[i]);
-                    if (d > 45) change++;
+                var diff = 0;
+                for (var i = 0; i < frame.length; i += 4) {
+                    if (Math.abs(frame[i] - prevFrame[i]) > 50) diff++;
                 }
 
-                // Lógica de Reacción
-                if (change > 350) { // MOVIMIENTO MUY CERCA (Susto)
-                    applyEffect('scared', 800);
-                } else if (change > 60) { // MOVIMIENTO LEJOS (Saludo)
-                    applyEffect('happy', 1200);
+                if (diff > 250) { // Sustazo
+                    reaccionar('scared');
                 }
             }
-            prevFrame = currentFrame;
-            setTimeout(() => requestAnimationFrame(processAI), 150);
+            prevFrame = frame;
+            setTimeout(procesarIA, 150);
         }
 
-        function applyEffect(className, duration) {
-            eyes.forEach(e => e.classList.add(className));
-            if(className === 'happy') sndHappy.play();
-            
-            setTimeout(() => {
-                eyes.forEach(e => e.classList.remove(className));
-            }, duration);
+        function reaccionar(tipo) {
+            eyes.forEach(function(e) { e.className = 'eye ' + tipo; });
+            setTimeout(function() {
+                eyes.forEach(function(e) { e.className = 'eye'; });
+            }, 1000);
         }
 
-        // 3. MOVIMIENTO POR INCLINACIÓN (ACELERÓMETRO)
-        window.addEventListener('deviceorientation', (event) => {
-            let x = event.gamma / 2;
-            let y = (event.beta - 45) / 2;
-            pupils.forEach(p => {
-                p.style.webkitTransform = `translate(${x}px, ${y}px)`;
-                p.style.transform = `translate(${x}px, ${y}px)`;
+        // Movimiento Ojos
+        window.addEventListener('deviceorientation', function(e) {
+            var x = e.gamma / 2;
+            var y = (e.beta - 45) / 2;
+            pupils.forEach(function(p) {
+                p.style.webkitTransform = 'translate('+x+'px,'+y+'px)';
+                p.style.transform = 'translate('+x+'px,'+y+'px)';
             });
         });
 
-        // 4. PARPADEO ALEATORIO
-        function doBlink() {
-            if(!document.querySelector('.scared')){
-                eyes.forEach(e => e.classList.add('blink'));
-                setTimeout(() => {
-                    eyes.forEach(e => e.classList.remove('blink'));
-                }, 150);
+        // Parpadeo
+        function blink() {
+            if (!inicializado || document.querySelector('.scared')) {
+                setTimeout(blink, 2000);
+                return;
             }
-            setTimeout(doBlink, Math.random() * 4000 + 2000);
+            eyes.forEach(function(e) { e.classList.add('blink'); });
+            setTimeout(function() {
+                eyes.forEach(function(e) { e.classList.remove('blink'); });
+            }, 150);
+            setTimeout(blink, Math.random() * 4000 + 2000);
         }
-        doBlink();
-
-        // Forzar scroll al cargar
-        window.onload = function() {
-            setTimeout(() => window.scrollTo(0, 1), 500);
-        };
+        blink();
     </script>
 </body>
 </html>
