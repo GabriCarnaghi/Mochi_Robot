@@ -92,49 +92,73 @@
         var snd = document.getElementById('snd');
         var msg = document.getElementById('msg');
 
-        // Función cuando tocas la pantalla
-        function interactuar() {
-            msg.style.display = 'none';
-            
-            // Sonido
-            snd.play();
-
-            // Gesto de felicidad
-            eyes.forEach(function(e) { e.classList.add('happy-eye'); });
-            
-            setTimeout(function() {
-                eyes.forEach(function(e) { e.classList.remove('happy-eye'); });
-            }, 1000);
-
-            // Forzar ocultar barras de Safari
+        // Función unificada para reaccionar
+        function reaccionar() {
+            // Ocultar mensaje y forzar scroll
+            if(msg) msg.style.display = 'none';
             window.scrollTo(0, 1);
+            
+            // Intentar reproducir sonido (con manejo de errores para Safari)
+            if (snd) {
+                snd.currentTime = 0; // Reinicia el audio si ya estaba sonando
+                var playPromise = snd.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.catch(function(error) {
+                        console.log("Error de audio: " + error);
+                    });
+                }
+            }
+
+            // Gesto de felicidad: agregamos la clase
+            for(var i=0; i<eyes.length; i++) {
+                eyes[i].className = 'eye happy-eye';
+            }
+            
+            // Volver a la normalidad tras 1 segundo
+            setTimeout(function() {
+                for(var j=0; j<eyes.length; j++) {
+                    eyes[j].className = 'eye';
+                }
+            }, 1000);
         }
 
-        // Movimiento de pupilas con la inclinación del iPhone
+        // AGREGAMOS AMBOS EVENTOS PARA ASEGURAR COMPATIBILIDAD
+        document.body.addEventListener('touchstart', function(e) {
+            reaccionar();
+        }, false);
+
+        document.body.addEventListener('click', function(e) {
+            reaccionar();
+        }, false);
+
+        // Movimiento de pupilas (Acelerómetro)
         window.addEventListener('deviceorientation', function(e) {
-            // Gamma es izquierda/derecha, Beta es adelante/atrás
             var x = e.gamma / 1.5;
             var y = (e.beta - 45) / 1.5; 
             
-            pupils.forEach(function(p) {
-                p.style.webkitTransform = 'translate(' + x + 'px,' + y + 'px)';
-                p.style.transform = 'translate(' + x + 'px,' + y + 'px)';
-            });
+            for(var k=0; k<pupils.length; k++) {
+                pupils[k].style.webkitTransform = 'translate(' + x + 'px,' + y + 'px)';
+                pupils[k].style.transform = 'translate(' + x + 'px,' + y + 'px)';
+            }
         });
 
         // Parpadeo automático
         function blink() {
-            var isHappy = document.querySelector('.happy-eye');
-            if (!isHappy) {
-                eyes.forEach(function(e) { e.classList.add('blink'); });
+            var happy = document.querySelector('.happy-eye');
+            if (!happy) {
+                for(var l=0; l<eyes.length; l++) {
+                    eyes[l].classList.add('blink');
+                }
                 setTimeout(function() {
-                    eyes.forEach(function(e) { e.classList.remove('blink'); });
+                    for(var m=0; m<eyes.length; m++) {
+                        eyes[m].classList.remove('blink');
+                    }
                 }, 150);
             }
             setTimeout(blink, Math.random() * 4000 + 2000);
         }
 
-        // Iniciar parpadeo y ocultar barras al cargar
         window.onload = function() {
             blink();
             setTimeout(function() { window.scrollTo(0, 1); }, 500);
