@@ -4,156 +4,124 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <title>Mochi Robot</title>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Mochi Pro</title>
     <style>
-        body { 
-            background: black; 
-            margin: 0; 
-            overflow: hidden; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-            width: 100vw; 
-            touch-action: none;
-        }
+        body { background: black; margin: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; width: 100vw; touch-action: none; }
         
-        /* Cara inspirada en tu imagen */
-        .face-container { 
-            display: flex; 
-            align-items: center; 
-            gap: 80px; 
-            position: relative; 
-        }
+        .face-container { display: flex; align-items: center; gap: 80px; position: relative; }
         
         .eye { 
-            width: 110px; 
-            height: 160px; 
-            background: white; 
-            border-radius: 55px; 
-            position: relative; 
-            overflow: hidden; 
-            transition: height 0.15s ease, margin-top 0.15s ease;
+            width: 110px; height: 160px; background: white; border-radius: 55px; 
+            position: relative; overflow: hidden; transition: all 0.1s ease;
         }
 
         .pupil { 
-            width: 50px; 
-            height: 70px; 
-            background: #111; 
-            border-radius: 50%; 
-            position: absolute; 
-            top: 45px; 
-            left: 30px; 
-            transition: transform 0.1s ease-out;
+            width: 50px; height: 70px; background: #111; border-radius: 50%; 
+            position: absolute; top: 45px; left: 30px; 
         }
 
-        /* La boca curva de tu imagen */
         .mouth {
-            width: 60px; 
-            height: 30px; 
-            border: 8px solid white; 
-            border-top: 0;
-            border-radius: 0 0 40px 40px; 
-            position: absolute; 
-            bottom: -55px; 
-            left: calc(50% - 38px);
+            width: 60px; height: 30px; border: 8px solid white; border-top: 0;
+            border-radius: 0 0 40px 40px; position: absolute; bottom: -55px; left: calc(50% - 38px);
+            transition: all 0.2s;
         }
 
-        /* Animaciones */
+        /* ESTADOS GESTUALES */
         .blink { height: 10px !important; margin-top: 75px; }
-        .happy-eye { transform: scaleY(0.7) !important; border-radius: 55px 55px 20px 20px !important; }
         
-        #msg { 
-            position: absolute; 
-            bottom: 20px; 
-            color: white; 
-            font-family: sans-serif; 
-            font-size: 14px; 
-            opacity: 0.5; 
-        }
+        .happy-eye { transform: scaleY(0.7) !important; border-radius: 55px 55px 20px 20px !important; background: #00FFCC !important; }
+        
+        .angry-eye { background: #FF3300 !important; transform: rotate(15deg) scale(1.1); }
+        #eR.angry-eye { transform: rotate(-15deg) scale(1.1); }
+        .angry-mouth { transform: scaleY(-1) translateY(10px); } /* Boca invertida */
+
+        #msg { position: absolute; bottom: 20px; color: white; font-family: sans-serif; font-size: 12px; opacity: 0.3; }
     </style>
 </head>
-<body onclick="interactuar()">
+<body id="main">
 
-    <div id="msg"> </div>
+    <div id="msg">Toca 1 o 2 veces</div>
 
     <div class="face-container">
         <div id="eL" class="eye"><div class="p pupil"></div></div>
-        <div class="mouth"></div>
+        <div id="mouth" class="mouth"></div>
         <div id="eR" class="eye"><div class="p pupil"></div></div>
     </div>
 
-    <audio id="snd" src="https://assets.mixkit.co/active_storage/sfx/2861/2861-preview.mp3"></audio>
+    <audio id="snd1" src="https://assets.mixkit.co/active_storage/sfx/2861/2861-preview.mp3" preload="auto"></audio>
 
     <script>
         var eyes = document.querySelectorAll('.eye');
         var pupils = document.querySelectorAll('.p');
-        var snd = document.getElementById('snd');
-        var msg = document.getElementById('msg');
+        var mouth = document.getElementById('mouth');
+        var snd1 = document.getElementById('snd1');
+        var lastTap = 0;
+        var timeout;
 
-        // Función unificada para reaccionar
-        function reaccionar() {
-            // Ocultar mensaje y forzar scroll
-            if(msg) msg.style.display = 'none';
-            window.scrollTo(0, 1);
-            
-            // Intentar reproducir sonido (con manejo de errores para Safari)
-            if (snd) {
-                snd.currentTime = 0; // Reinicia el audio si ya estaba sonando
-                var playPromise = snd.play();
-                
-                if (playPromise !== undefined) {
-                    playPromise.catch(function(error) {
-                        console.log("Error de audio: " + error);
-                    });
-                }
-            }
-
-            // Gesto de felicidad: agregamos la clase
-            for(var i=0; i<eyes.length; i++) {
-                eyes[i].className = 'eye happy-eye';
-            }
-            
-            // Volver a la normalidad tras 1 segundo
-            setTimeout(function() {
-                for(var j=0; j<eyes.length; j++) {
-                    eyes[j].className = 'eye';
-                }
-            }, 1000);
+        // Función para limpiar estados
+        function resetFace() {
+            for(var i=0; i<eyes.length; i++) { eyes[i].className = 'eye'; }
+            mouth.className = 'mouth';
         }
 
-        // AGREGAMOS AMBOS EVENTOS PARA ASEGURAR COMPATIBILIDAD
+        // Lógica de interacción
+        function handleInteraction() {
+            var currentTime = new Date().getTime();
+            var tapLength = currentTime - lastTap;
+            clearTimeout(timeout);
+
+            if (tapLength < 300 && tapLength > 0) {
+                // DOBLE TOQUE: ENOJO
+                reaccionar('angry');
+            } else {
+                // UN TOQUE: FELICIDAD
+                timeout = setTimeout(function() {
+                    reaccionar('happy');
+                }, 300);
+            }
+            lastTap = currentTime;
+            window.scrollTo(0, 1);
+        }
+
+        function reaccionar(tipo) {
+            resetFace();
+            // Desbloqueo de sonido forzado para modo "App Inicio"
+            snd1.play(); 
+
+            if (tipo === 'happy') {
+                for(var i=0; i<eyes.length; i++) { eyes[i].classList.add('happy-eye'); }
+                snd1.playbackRate = 1.5; // Sonido más agudo
+            } else {
+                for(var i=0; i<eyes.length; i++) { eyes[i].classList.add('angry-eye'); }
+                mouth.classList.add('angry-mouth');
+                snd1.playbackRate = 0.5; // Sonido más grave (enojado)
+            }
+
+            setTimeout(resetFace, 1000);
+        }
+
+        // Eventos para iPhone 5
         document.body.addEventListener('touchstart', function(e) {
-            reaccionar();
+            handleInteraction();
+            e.preventDefault(); 
         }, false);
 
-        document.body.addEventListener('click', function(e) {
-            reaccionar();
-        }, false);
-
-        // Movimiento de pupilas (Acelerómetro)
+        // Movimiento de pupilas
         window.addEventListener('deviceorientation', function(e) {
             var x = e.gamma / 1.5;
             var y = (e.beta - 45) / 1.5; 
-            
-            for(var k=0; k<pupils.length; k++) {
-                pupils[k].style.webkitTransform = 'translate(' + x + 'px,' + y + 'px)';
-                pupils[k].style.transform = 'translate(' + x + 'px,' + y + 'px)';
+            for(var i=0; i<pupils.length; i++) {
+                pupils[i].style.webkitTransform = 'translate(' + x + 'px,' + y + 'px)';
             }
         });
 
-        // Parpadeo automático
+        // Parpadeo
         function blink() {
-            var happy = document.querySelector('.happy-eye');
-            if (!happy) {
-                for(var l=0; l<eyes.length; l++) {
-                    eyes[l].classList.add('blink');
-                }
+            if (!document.querySelector('.happy-eye') && !document.querySelector('.angry-eye')) {
+                for(var i=0; i<eyes.length; i++) { eyes[i].classList.add('blink'); }
                 setTimeout(function() {
-                    for(var m=0; m<eyes.length; m++) {
-                        eyes[m].classList.remove('blink');
-                    }
+                    for(var i=0; i<eyes.length; i++) { eyes[i].classList.remove('blink'); }
                 }, 150);
             }
             setTimeout(blink, Math.random() * 4000 + 2000);
@@ -161,7 +129,7 @@
 
         window.onload = function() {
             blink();
-            setTimeout(function() { window.scrollTo(0, 1); }, 500);
+            window.scrollTo(0, 1);
         };
     </script>
 </body>
