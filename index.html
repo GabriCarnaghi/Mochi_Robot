@@ -2,6 +2,9 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mochi Bot">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, orientation=landscape">
     <title>Mochi Robot v3.0</title>
     <style>
@@ -154,6 +157,12 @@
             setTimeout(parpadear, Math.random() * 4000 + 2000);
         }
         parpadear();
+
+        window.onload = function() {
+           setTimeout(function() {
+               window.scrollTo(0, 1);
+           }, 100);
+        };
     </script>
 </body>
 </html>
